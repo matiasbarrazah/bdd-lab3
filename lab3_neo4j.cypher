@@ -59,7 +59,7 @@ MERGE (a:AgenteIA {nombre: 'Agente IA Normativo SII'})
 // 3) CARGA DEL DATASET -> Normativa, Fuente, TipoDocumento,
 //    ClasificacionIA, ExplicacionIA  (1 fila CSV = 1 normativa)
 // =====================================================================
-LOAD CSV WITH HEADERS FROM 'file:///normativas_clasificadas_IA.csv' AS row
+LOAD CSV WITH HEADERS FROM 'https://raw.githubusercontent.com/matiasbarrazah/bdd-lab3/main/normativas_clasificadas_IA.csv' AS row
 WITH row WHERE row.name IS NOT NULL AND trim(row.name) <> ''
 
 // --- Normativa (nodo central) ---
@@ -365,17 +365,18 @@ RETURN 'Relevante sin reglas'       AS tipo_inconsistencia,
 MATCH (n:RequiereRevision)
 MATCH (n)-[:TIENE_CLASIFICACION]->(c:ClasificacionIA)-[:TIENE_EXPLICACION]->(e:ExplicacionIA)
 OPTIONAL MATCH (n)-[:ACTIVA_REGLA]->(rn:ReglaNegocio)
-RETURN n.name                                       AS normativa,
-       c.valor                                      AS clasificacion_IA,
-       e.longitud                                   AS largo_explicacion,
-       'ExplicacionDebil' IN labels(n)              AS explicacion_debil,
-       count(DISTINCT rn)                           AS n_reglas_activadas,
+WITH n, c, e, count(DISTINCT rn) AS n_reglas_activadas
+RETURN n.name                          AS normativa,
+       c.valor                         AS clasificacion_IA,
+       e.longitud                      AS largo_explicacion,
+       'ExplicacionDebil' IN labels(n) AS explicacion_debil,
+       n_reglas_activadas,
        CASE
-         WHEN c.valor = 'No Relevante' AND count(DISTINCT rn) > 0 THEN 'Inconsistencia: No Relevante activa reglas'
-         WHEN c.valor = 'Relevante'    AND count(DISTINCT rn) = 0 THEN 'Inconsistencia: Relevante sin reglas'
-         WHEN n.len_explicacion < 200                              THEN 'Explicación insuficiente'
+         WHEN c.valor = 'No Relevante' AND n_reglas_activadas > 0 THEN 'Inconsistencia: No Relevante activa reglas'
+         WHEN c.valor = 'Relevante'    AND n_reglas_activadas = 0 THEN 'Inconsistencia: Relevante sin reglas'
+         WHEN n.len_explicacion < 200                             THEN 'Explicación insuficiente'
          ELSE 'Otra'
-       END                                          AS motivo_revision
+       END                             AS motivo_revision
 ORDER BY n_reglas_activadas DESC, largo_explicacion ASC;
 
 
